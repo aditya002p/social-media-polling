@@ -1,127 +1,120 @@
 import React from "react";
 import Link from "next/link";
-import { Card } from "../ui/Card";
-import { Badge } from "../ui/Badge";
-import { Users, Lock, MessageSquare, Calendar } from "lucide-react";
-import { Avatar } from "../ui/Avatar";
-import { Button } from "../ui/Button";
-
-interface GroupMember {
-  id: string;
-  name: string;
-  avatar: string;
-}
+import { Group } from "@/types/group";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Avatar } from "@/components/ui/Avatar";
+import { Badge } from "@/components/ui/Badge";
+import { useAuth } from "@/hooks/useAuth";
+import { useGroup } from "@/hooks/useGroup";
 
 interface GroupCardProps {
-  id: string;
-  name: string;
-  description: string;
-  coverImage?: string;
-  isPrivate: boolean;
-  memberCount: number;
-  topics: string[];
-  recentMembers: GroupMember[];
-  lastActivity: string;
-  currentUserIsMember?: boolean;
-  onJoinClick?: () => void;
+  group: Group;
+  compact?: boolean;
 }
 
-export const GroupCard: React.FC<GroupCardProps> = ({
-  id,
-  name,
-  description,
-  coverImage,
-  isPrivate,
-  memberCount,
-  topics,
-  recentMembers,
-  lastActivity,
-  currentUserIsMember = false,
-  onJoinClick,
-}) => {
-  const formattedLastActivity = new Date(lastActivity).toLocaleDateString(
-    "en-US",
-    {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    }
+const GroupCard: React.FC<GroupCardProps> = ({ group, compact = false }) => {
+  const { user } = useAuth();
+  const { joinGroup, leaveGroup } = useGroup();
+
+  const isGroupMember = group.members?.some(
+    (member) => member.userId === user?.id
   );
+  const isGroupOwner = group.ownerId === user?.id;
+
+  const handleJoinLeave = async () => {
+    if (isGroupMember) {
+      await leaveGroup(group.id);
+    } else {
+      await joinGroup(group.id);
+    }
+  };
+
+  if (compact) {
+    return (
+      <Link href={`/groups/${group.id}`} className="block">
+        <Card className="p-3 hover:shadow-md transition-shadow duration-200">
+          <div className="flex items-center space-x-3">
+            <Avatar
+              src={group.avatarUrl}
+              alt={group.name}
+              size="sm"
+              fallback={group.name.charAt(0)}
+            />
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-medium truncate">{group.name}</h3>
+              <p className="text-xs text-gray-500 truncate">
+                {group.memberCount} members
+              </p>
+            </div>
+            {group.isPrivate && <Badge variant="secondary">Private</Badge>}
+          </div>
+        </Card>
+      </Link>
+    );
+  }
 
   return (
-    <Card className="mb-4 overflow-hidden">
-      {coverImage && (
-        <div
-          className="h-32 bg-cover bg-center"
-          style={{ backgroundImage: `url(${coverImage})` }}
-        />
-      )}
+    <Card className="overflow-hidden">
+      <div
+        className="h-32 bg-gradient-to-r from-blue-500 to-purple-500"
+        style={{
+          backgroundImage: group.bannerUrl
+            ? `url(${group.bannerUrl})`
+            : undefined,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }}
+      />
       <div className="p-4">
-        <div className="flex justify-between items-start mb-2">
-          <Link href={`/groups/${id}`}>
-            <h3 className="text-xl font-bold hover:text-blue-600 flex items-center">
-              {name}
-              {isPrivate && <Lock size={16} className="ml-2 text-gray-500" />}
-            </h3>
-          </Link>
-
-          {!currentUserIsMember && onJoinClick && (
-            <Button onClick={onJoinClick} size="sm">
-              Join Group
-            </Button>
-          )}
-
-          {currentUserIsMember && (
-            <Badge className="bg-green-100 text-green-800 border-green-300">
-              Member
-            </Badge>
-          )}
-        </div>
-
-        <p className="text-gray-600 mb-4">{description}</p>
-
-        {topics.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4">
-            {topics.map((topic) => (
-              <Badge key={topic} variant="outline" className="text-sm">
-                {topic}
-              </Badge>
-            ))}
-          </div>
-        )}
-
-        <div className="flex justify-between items-center pt-3 border-t border-gray-200">
-          <div className="flex items-center">
-            <Users size={16} className="mr-1 text-gray-500" />
-            <span className="text-sm text-gray-500">{memberCount} members</span>
-          </div>
-
-          <div className="flex items-center text-sm text-gray-500">
-            <Calendar size={16} className="mr-1" />
-            <span>Active: {formattedLastActivity}</span>
-          </div>
-        </div>
-
-        {recentMembers.length > 0 && (
-          <div className="mt-4">
-            <div className="flex -space-x-2 overflow-hidden">
-              {recentMembers.map((member) => (
-                <Avatar
-                  key={member.id}
-                  src={member.avatar}
-                  alt={member.name}
-                  className="border-2 border-white"
-                  size="sm"
-                />
-              ))}
-              {memberCount > recentMembers.length && (
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-200 text-xs text-gray-600 border-2 border-white">
-                  +{memberCount - recentMembers.length}
+        <div className="flex items-start -mt-10">
+          <Avatar
+            src={group.avatarUrl}
+            alt={group.name}
+            size="lg"
+            className="border-4 border-white"
+            fallback={group.name.charAt(0)}
+          />
+          <div className="ml-4 mt-10 flex-1">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">{group.name}</h3>
+                <div className="flex items-center mt-1 space-x-2">
+                  <p className="text-sm text-gray-500">
+                    {group.memberCount} members
+                  </p>
+                  {group.isPrivate && <Badge>Private</Badge>}
                 </div>
+              </div>
+              {!isGroupOwner && (
+                <Button
+                  variant={isGroupMember ? "outline" : "default"}
+                  onClick={handleJoinLeave}
+                >
+                  {isGroupMember ? "Leave" : "Join"}
+                </Button>
+              )}
+              {isGroupOwner && (
+                <Link href={`/groups/${group.id}/edit`}>
+                  <Button variant="outline">Manage</Button>
+                </Link>
               )}
             </div>
+            {!compact && (
+              <p className="mt-2 text-sm text-gray-600 line-clamp-2">
+                {group.description}
+              </p>
+            )}
           </div>
-        )}
+        </div>
+        <div className="mt-4">
+          <Link
+            href={`/groups/${group.id}`}
+            className="text-sm text-blue-600 hover:underline"
+          >
+            View Group
+          </Link>
+        </div>
       </div>
     </Card>
   );
